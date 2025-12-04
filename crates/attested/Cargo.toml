@@ -1,0 +1,53 @@
+[package]
+name = "reth-attested"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+description = "Attested Transaction (Type 0x64) support for Reth - Gateway signed transactions with BLS12-381"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Reth
+reth-primitives-traits = { workspace = true }
+reth-codecs = { workspace = true, optional = true }
+
+# Alloy
+alloy-primitives = { workspace = true, features = ["rlp"] }
+alloy-rlp = { workspace = true, features = ["derive"] }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+
+# BLS signatures
+blst = "0.3"
+
+# Serialization
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+# Hex encoding
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Utilities
+bytes = { workspace = true }
+derive_more = { workspace = true }
+
+# Concurrency (for no_std)
+spin = { version = "0.9", default-features = false, features = ["rwlock"], optional = true }
+
+[dev-dependencies]
+alloy-primitives = { workspace = true, features = ["arbitrary"] }
+arbitrary = { workspace = true, features = ["derive"] }
+rand = "0.9"
+
+[features]
+default = ["std"]
+std = ["alloy-primitives/std", "alloy-rlp/std", "alloy-consensus/std", "reth-primitives-traits/std"]
+serde = ["dep:serde", "dep:serde_json", "alloy-primitives/serde", "alloy-eips/serde", "alloy-consensus/serde"]
+reth-codec = ["dep:reth-codecs"]
+arbitrary = ["alloy-primitives/arbitrary", "alloy-consensus/arbitrary"]
