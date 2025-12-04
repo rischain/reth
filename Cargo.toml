@@ -135,6 +135,7 @@ members = [
     "crates/tokio-util/",
     "crates/tracing/",
     "crates/transaction-pool/",
+    "crates/attested/",
     "crates/trie/common",
     "crates/trie/db",
     "crates/trie/parallel/",
@@ -464,6 +465,7 @@ reth-trie-sparse-parallel = { path = "crates/trie/sparse-parallel" }
 reth-zstd-compressors = { path = "crates/storage/zstd-compressors", default-features = false }
 reth-ress-protocol = { path = "crates/ress/protocol" }
 reth-ress-provider = { path = "crates/ress/provider" }
+reth-attested = { path = "crates/attested", default-features = false }
 
 # revm
 revm = { version = "31.0.2", default-features = false }

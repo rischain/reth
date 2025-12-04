@@ -24,6 +24,10 @@ use reth_primitives_traits::{
     InMemorySize, SignedTransaction,
 };
 
+#[cfg(feature = "attested")]
+use reth_attested::{TxAttested, ATTESTED_TX_TYPE};
+
+#[cfg(not(feature = "attested"))]
 macro_rules! delegate {
     ($self:expr => $tx:ident.$method:ident($($arg:expr),*)) => {
         match $self {
@@ -32,6 +36,20 @@ macro_rules! delegate {
             Transaction::Eip1559($tx) => $tx.$method($($arg),*),
             Transaction::Eip4844($tx) => $tx.$method($($arg),*),
             Transaction::Eip7702($tx) => $tx.$method($($arg),*),
+        }
+    };
+}
+
+#[cfg(feature = "attested")]
+macro_rules! delegate {
+    ($self:expr => $tx:ident.$method:ident($($arg:expr),*)) => {
+        match $self {
+            Transaction::Legacy($tx) => $tx.$method($($arg),*),
+            Transaction::Eip2930($tx) => $tx.$method($($arg),*),
+            Transaction::Eip1559($tx) => $tx.$method($($arg),*),
+            Transaction::Eip4844($tx) => $tx.$method($($arg),*),
+            Transaction::Eip7702($tx) => $tx.$method($($arg),*),
+            Transaction::Attested($tx) => $tx.$method($($arg),*),
         }
     };
 }
@@ -89,6 +107,12 @@ pub enum Transaction {
     /// until re-assigned by the same EOA. This allows for adding smart contract functionality to
     /// the EOA.
     Eip7702(TxEip7702),
+    /// Attested Transaction (type `0x64`).
+    ///
+    /// Attested transactions wrap a standard Ethereum transaction with a BLS12-381 gateway
+    /// signature, proving that the transaction has been verified by a trusted gateway.
+    #[cfg(feature = "attested")]
+    Attested(TxAttested),
 }
 
 impl Transaction {
@@ -485,11 +509,39 @@ impl Encodable2718 for TransactionSigned {
     }
 
     fn encode_2718_len(&self) -> usize {
-        delegate!(&self.transaction => tx.eip2718_encoded_length(&self.signature))
+        #[cfg(feature = "attested")]
+        if let Transaction::Attested(tx) = &self.transaction {
+            return 1 + tx.rlp_encoded_length_with_signature(&self.signature);
+        }
+
+        match &self.transaction {
+            Transaction::Legacy(tx) => tx.eip2718_encoded_length(&self.signature),
+            Transaction::Eip2930(tx) => tx.eip2718_encoded_length(&self.signature),
+            Transaction::Eip1559(tx) => tx.eip2718_encoded_length(&self.signature),
+            Transaction::Eip4844(tx) => tx.eip2718_encoded_length(&self.signature),
+            Transaction::Eip7702(tx) => tx.eip2718_encoded_length(&self.signature),
+            #[cfg(feature = "attested")]
+            Transaction::Attested(_) => unreachable!(),
+        }
     }
 
     fn encode_2718(&self, out: &mut dyn alloy_rlp::BufMut) {
-        delegate!(&self.transaction => tx.eip2718_encode(&self.signature, out))
+        #[cfg(feature = "attested")]
+        if let Transaction::Attested(tx) = &self.transaction {
+            out.put_u8(ATTESTED_TX_TYPE);
+            tx.rlp_encode_with_signature(&self.signature, out);
+            return;
+        }
+
+        match &self.transaction {
+            Transaction::Legacy(tx) => tx.eip2718_encode(&self.signature, out),
+            Transaction::Eip2930(tx) => tx.eip2718_encode(&self.signature, out),
+            Transaction::Eip1559(tx) => tx.eip2718_encode(&self.signature, out),
+            Transaction::Eip4844(tx) => tx.eip2718_encode(&self.signature, out),
+            Transaction::Eip7702(tx) => tx.eip2718_encode(&self.signature, out),
+            #[cfg(feature = "attested")]
+            Transaction::Attested(_) => unreachable!(),
+        }
     }
 
     fn trie_hash(&self) -> B256 {
@@ -499,6 +551,18 @@ impl Encodable2718 for TransactionSigned {
 
 impl Decodable2718 for TransactionSigned {
     fn typed_decode(ty: u8, buf: &mut &[u8]) -> Eip2718Result<Self> {
+        // Handle attested transactions (Type 0x64) first
+        #[cfg(feature = "attested")]
+        if ty == ATTESTED_TX_TYPE {
+            let (tx, signature) = TxAttested::rlp_decode_with_signature(buf)
+                .map_err(Eip2718Error::RlpError)?;
+            return Ok(Self {
+                transaction: Transaction::Attested(tx),
+                signature,
+                hash: Default::default(),
+            });
+        }
+
         match ty.try_into().map_err(|_| Eip2718Error::UnexpectedType(ty))? {
             TxType::Legacy => Err(Eip2718Error::UnexpectedType(0)),
             TxType::Eip2930 => {

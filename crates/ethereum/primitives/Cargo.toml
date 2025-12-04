@@ -16,6 +16,7 @@ workspace = true
 reth-codecs = { workspace = true, optional = true }
 reth-primitives-traits.workspace = true
 reth-zstd-compressors = { workspace = true, optional = true }
+reth-attested = { workspace = true, optional = true }
 
 # ethereum
 alloy-eips = { workspace = true, features = ["k256"] }
@@ -47,6 +48,7 @@ serde_json.workspace = true
 
 [features]
 default = ["std"]
+attested = ["dep:reth-attested", "reth-attested?/std", "reth-attested?/serde"]
 test-utils = [
     "reth-codecs?/test-utils",
     "reth-primitives-traits/test-utils",
